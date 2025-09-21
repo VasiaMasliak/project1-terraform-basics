@@ -11,5 +11,5 @@ override.tf.json
 
 
 #Python venv
-myvenv/
+.venv/
 
