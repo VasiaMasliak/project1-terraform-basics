@@ -19,7 +19,7 @@ resource "azurerm_resource_group" "rg" {
 resource "azurerm_virtual_network" "vnet" {
   name                = "vnet-${var.project}"
   address_space       = ["10.0.0.0/16"]
-  location            = var.location
+  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   tags = {
     project = var.project
@@ -35,7 +35,7 @@ resource "azurerm_subnet" "subnet" {
 
 resource "azurerm_network_security_group" "nsg" {
   name                = "nsg-${var.project}"
-  location            = var.location
+  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
   security_rule {
@@ -58,7 +58,7 @@ resource "azurerm_network_security_group" "nsg" {
 resource "azurerm_public_ip" "pubip" {
   name                = "pubip-${var.project}"
   resource_group_name = azurerm_resource_group.rg.name
-  location            = var.location
+  location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
   sku                 = "Basic"
   tags = {
@@ -68,7 +68,7 @@ resource "azurerm_public_ip" "pubip" {
 
 resource "azurerm_network_interface" "nic" {
   name                = "nic-${var.project}"
-  location            = var.location
+  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   ip_configuration {
     name                          = "ipcfg"
@@ -88,7 +88,7 @@ resource "azurerm_network_interface_security_group_association" "assoc" {
 
 resource "azurerm_linux_virtual_machine" "vm" {
   name                  = "vm-${var.project}"
-  location              = var.location
+  location              = azurerm_resource_group.rg.location
   resource_group_name   = azurerm_resource_group.rg.name
   size                  = var.vm_size
   admin_username        = var.admin_username
@@ -96,7 +96,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = var.location
+    public_key = trimspace(file("~/.ssh/id_rsa.pub"))
   }
 
   os_disk {
@@ -120,7 +120,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
 resource "azurerm_storage_account" "sa" {
   name                     = var.storage_name
   resource_group_name      = azurerm_resource_group.rg.name
-  location                 = var.location
+  location                 = azurerm_resource_group.rg.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
   tags = {
