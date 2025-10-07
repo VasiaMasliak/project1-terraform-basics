@@ -9,7 +9,7 @@ terraform {
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-${var.project}-rg"
+  name     = "rg-${var.project}"
   location = var.location
   tags = {
     project = var.project

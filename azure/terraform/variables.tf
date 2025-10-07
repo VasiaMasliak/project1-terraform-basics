@@ -4,7 +4,6 @@ variable "project" {
 
 variable "location" {
   type    = string
-  default = "westeurope"
 }
 
 variable "vm_size" {
