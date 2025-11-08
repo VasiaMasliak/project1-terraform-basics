@@ -13,3 +13,6 @@ override.tf.json
 #Python venv
 .venv/
 
+# macOS system files
+.DS_Store
+
