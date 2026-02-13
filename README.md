@@ -3,15 +3,30 @@
 ## 📘 Overview
 > This project demonstrates the use of **Terraform** to automate infrastructure deployment across **multiple cloud providers** - **Azure** and **AWS**
 
+> The Azure implementation has been refactored using a **modular architecture**, following Terraform best practices for reusable and scalable infrastructure design.
+
 ---
 
 ## ☁️ Cloud Infrastructure Deployed
 
-### **Azure**
-- Resource Group
-- Virtual Network(VNet)
-- Virtual Machine (VM)
-- Storage Account
+### **Azure**(Modular Design)
+**Root module**
+- Provider configuration
+- Variable definitions
+- Environment configuration
+- Module invocation
+
+**Child module:** `compute_stack`
+
+Responsible for provisioning:
+- Resource group
+- Virtual Network (VNet)
+- Subnet
+- Network Security Group (NSG)
+- Public IP
+- Network interface
+- Linux Virtual Machine (VM)
+- Storage account
 
 ### **AWS**
 - VPC
@@ -39,8 +54,6 @@
 │       ├── main.tf
 │       ├── outputs.tf
 │       ├── provider.tf
-│       ├── terraform.tfstate
-│       ├── terraform.tfstate.backup
 │       ├── terraform.tfvars
 │       └── variables.tf
 └── azure
@@ -49,10 +62,13 @@
         ├── main.tf
         ├── outputs.tf
         ├── provider.tf
-        ├── terraform.tfstate
-        ├── terraform.tfstate.backup
         ├── terraform.tfvars
-        └── variables.tf
+        |── variables.tf
+        └── modules
+            └── compute_stack
+                ├── main.tf      
+                ├── variables.tf
+                └── outputs.tf
 </pre>
 
 ---
@@ -92,6 +108,10 @@
 * GIT & Version Control
 
 ## Skills demonstarted
-> A fully automated **multi-cloud infrastructure** showcasing strong Terraform fundamentals.
+> A fully automated **multi-cloud infrastructure solution** demonstrating:
+- Strong Terraform fundamentals
+- Modular infrastructure design
+- Reusable Azure compute stack
+- Production-style IaC structure
 
 
