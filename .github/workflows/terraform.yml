@@ -1,0 +1,222 @@
+name: Terraform CI/CD (Azure + AWS)
+
+on:
+  pull_request:
+    branches: [ "dev" ]
+    paths:
+      - "aws/terraform/**"
+      - "azure/terraform/**"
+      - ".github/workflows/terraform.yml"
+  push:
+    branches: [ "dev" ]
+    paths:
+      - "aws/terraform/**"
+      - "azure/terraform/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+    inputs:
+      actions:
+        description: "What do you want to run?"
+        required: true
+        type: choice
+        options: 
+          - apply
+          - destroy  
+      target:
+        description: "Which stack to apply?"
+        required: true
+        type: choice
+        options:
+          - azure
+          - aws
+      confirm_destroy:
+        description: "Type DESTROY to confirm(only for destroy)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+  pull_request: write
+
+env: 
+  TF_VERSION: "1.5.0"
+
+jobs:
+  plan:
+    name: "fmt + validate + plan"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack:
+          - name: azure
+            dir: azure/terraform
+          - name: aws
+            dir: aws/terraform
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Detects changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: | 
+            azure:
+              - 'azure/terraform/**'
+            aws:
+              - 'aws/terraform/**'
+
+      - name: Skip unchanged stack
+        if: ${{ ( matrix.stack.name == 'azure' && steps.changes.outputs.azure != 'true') || (matrix.stack.name == 'aws' && steps.changes.outputs.aws != 'true') }}
+        run: echo "No changes in ${{ matrix.stack.name }}. Skipping."
+
+      - name: Terraform fmt (check)
+        if: ${{ ( matrix.stack.name == 'azure' && steps.changes.outputs.azure == 'true') || (matrix.stack.name == 'aws' && steps.changes.outputs.aws == 'true') }}
+        working-directory: ${{ matrix.stack.dir }}
+        run: terraform fmt -check -recursive 
+
+      - name: Configure Azure login
+        if: ${{ matrix.stack.name == 'azure' && steps.changes.outputs.azure == 'true' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+      - name: Configure AWS login
+        if: ${{ matrix.stack.name == 'aws' && steps.changes.outputs.aws == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform init
+        if: ${{ ( matrix.stack.name == 'azure' && steps.changes.outputs.azure == 'true') || ( matrix.stack.name == 'aws' && steps.changes.outputs.aws == 'true') }}
+        working-directory: ${{ matrix.stack.dir }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        if: ${{ ( matrix.stack.name == 'azure' && steps.changes.outputs.azure == 'true') || ( matrix.stack.name == 'aws' && steps.changes.outputs.aws == 'true') }}
+        working-directory: ${{ matrix.stack.dir }}
+        run: terraform validate
+
+      - name: Terraform plan 
+        if: ${{ ( matrix.stack.name == 'azure' && steps.changes.outputs.azure == 'true') || ( matrix.stack.name == 'aws' && steps.changes.outputs.aws == 'true' ) }}
+        working-directory: ${{ matrix.stack.dir }}
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Upload plan artifact
+        if: ${{ ( matrix.stack.name == 'azure' &&  steps.changes.outputs.azure =='true') || ( matrix.stack.name == 'aws' && steps.changes.outputs.aws == 'true' ) }}
+        uses: actions/upload-artifact@v4
+        with: 
+          name: tfplan-${{ matrix.stack.name }}
+          path: ${{ matrix.stack.dir }}/tfplan
+
+  apply:
+    name: "apply (manual approval)"
+    runs-on: ubuntu-latest
+    needs: [ plan ]
+    if: ${{ github.event_name == 'workflow_dispatch'  && github.event.inputs.actions == 'apply' }}
+    environment:
+      name: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Set stack directory
+        id: stack
+        run: |
+          if [[ "${{ github.event.inputs.target }}" == "azure" ]]; then
+            echo "dir=azure/terraform" >> $GITHUB_OUTPUT
+          else
+            echo "dir=aws/terraform" >> $GITHUB_OUTPUT
+          fi 
+      
+      - name: Azure login
+        if: ${{ github.event.inputs.target == 'azure' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+      - name: AWS login
+        if: ${{ github.event.inputs.target == 'aws' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform init
+        working-directory: ${{ steps.stack.outputs.dir }}
+        run: terraform init -input=false
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.target }}
+          path: ${{ steps.stack.outputs.dir }}
+
+      - name: Terraform apply
+        working-directory: ${{ steps.stack.outputs.dir }}
+        run: terraform apply -input=false -auto-approve tfplan
+  
+  destroy:
+    name: "destroy(manual approval)"
+    runs-on: ubuntu-latest
+    needs: [ plan ]
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.actions == 'destroy' && github.event.inputs.confirm_destroy == 'DESTROY' }}
+    environment:
+      name: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Set stack directory
+        id: stack
+        run: | 
+          if [[ "${{ github.event.inputs.target }}" == "azure" ]]; then
+            echo "dir=azure/terraform" >> $GITHUB_OUTPUT
+          else
+            echo "dir=aws/terraform" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Azure login 
+        if: ${{ github.event.inputs.target == 'azure' }}
+        uses: azure/login@v2
+        with: 
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: AWS login 
+        if: ${{ github.event.inputs.target == 'aws' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with: 
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform init
+        working-directory: ${{ steps.stack.outputs.dir }}
+        run: terraform init -input=false
+      
+      - name: Terraform destroy
+        working-directory: ${{ steps.stack.outputs.dir }}
+        run: terraform destroy -input=false -auto-approve
