@@ -56,6 +56,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate SSH key for CI
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
