@@ -2,13 +2,13 @@ name: Terraform CI/CD (Azure + AWS)
 
 on:
   pull_request:
-    branches: [ "dev" ]
+    branches: [ "main" ]
     paths:
       - "aws/terraform/**"
       - "azure/terraform/**"
       - ".github/workflows/terraform.yml"
   push:
-    branches: [ "dev" ]
+    branches: [ "main" ]
     paths:
       - "aws/terraform/**"
       - "azure/terraform/**"
@@ -37,7 +37,7 @@ on:
 permissions:
   contents: read
   id-token: write
-  pull_request: write
+  pull_requests: write
 
 env: 
   TF_VERSION: "1.5.0"
@@ -73,7 +73,7 @@ jobs:
             aws:
               - 'aws/terraform/**'
 
-      - name: Skip unchanged stack
+      - name: Print unchanged stack
         if: ${{ ( matrix.stack.name == 'azure' && steps.changes.outputs.azure != 'true') || (matrix.stack.name == 'aws' && steps.changes.outputs.aws != 'true') }}
         run: echo "No changes in ${{ matrix.stack.name }}. Skipping."
 
