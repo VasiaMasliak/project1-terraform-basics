@@ -134,6 +134,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate SSH key for CI (AWS)
+        if: ${{ github.event.inputs.target == 'aws' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+          ls -la ~/.ssh
+
       - name: Setup terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -187,6 +194,13 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+
+      - name: Generate SSH key for CI (AWS)
+        if: ${{ github.event.inputs.target == 'aws' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+          ls -la ~/.ssh
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
