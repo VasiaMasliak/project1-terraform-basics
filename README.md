@@ -35,6 +35,21 @@ Responsible for provisioning:
 - S3 Bucket
 
 ---
+## ⚙️ CI/CD Pipeline
+This project includes a GitHub Actions–based CI/CD pipeline for Terraform automation across AWS and Azure.
+
+The pipeline performs:
+- `terraform fmt`
+- `terraform validate`
+- `terraform plan`
+- `Manual apply with approval`
+- `Manual destroy with confirmation safeguard`
+
+
+## 🚧 CI/CD Pipeline Status
+The CI/CD pipeline is currently under active development and refinement.
+
+While the core workflow structure is implemented, further improvements are in progress to enhance reliability, remote state management, and multi-cloud consistency.
 
 ## ⚙️ Key Terraform Concepts Used
 - `Providers:` Separate provider configurations for AWS and Azure within dedicated directories.
