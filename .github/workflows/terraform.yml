@@ -50,8 +50,6 @@ jobs:
       fail-fast: false
       matrix:
         stack:
-          - name: azure
-            dir: azure/terraform
           - name: aws
             dir: aws/terraform
     
