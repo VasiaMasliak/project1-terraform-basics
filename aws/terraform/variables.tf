@@ -30,6 +30,7 @@ variable "instance_type" {
 
 variable "bucket_name" {
   type = string
+  default = "my-terraform-demo-2026-001"
 }
 
 variable "public_key_path" {
